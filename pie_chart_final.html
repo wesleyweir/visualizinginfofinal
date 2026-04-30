@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <style>
+    body { font-family: Arial; }
+    .arc text { font-size: 12px; }
+  </style>
+</head>
+<body>
+<div class="header">
+        <div class="nav-bar">
+            <a href="pie_chart_final.html">| Visualization |</a>
+            <a href="documentation.html"> | Documentation |</a>
+
+
+<h1>Hours Students Spend Studying</h1>
+
+<div id="chart"></div>
+<div id="results" style="margin-top:20px; font-size:18px;"></div>
+
+<script>
+
+// load the data
+d3.csv("students.csv", function(err, data) {
+
+  // convert strings  
+  data.forEach(function(d) {
+    d.study_hours_per_week = +d.study_hours_per_week;
+    d.previous_score = +d.previous_score;
+    d.final_score = +d.final_score;
+  });
+
+  // ranges for study hours
+  var ranges = [
+    { label: "0–5", min: 0, max: 5 },
+    { label: "6–10", min: 6, max: 10 },
+    { label: "11–15", min: 11, max: 15 },
+    { label: "16–20", min: 16, max: 20 },
+    { label: "21–25", min: 21, max: 25 },
+    { label: "26–30", min: 26, max: 30 }
+  ];
+
+  // count how many fall into each range
+  var chartData = ranges.map(function(r) {
+    var count = data.filter(function(d) {
+      return d.study_hours_per_week >= r.min &&
+             d.study_hours_per_week <= r.max;
+    }).length;
+
+    return { label: r.label, count: count };
+  });
+
+  var width = 600,
+      height = 400,
+      radius = Math.min(width, height) / 2;
+
+  var color = d3.scale.category10();
+
+  var pie = d3.layout.pie()
+    .value(function(d) { return d.count });
+
+  var arc = d3.svg.arc()
+    .innerRadius(0)
+    .outerRadius(radius - 20);
+
+  var svg = d3.select("#chart")
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .append("g")
+    .attr("transform", "translate(" + width/2 + "," + height/2 + ")");
+
+  var slices = svg.selectAll(".slice")
+    .data(pie(chartData))
+    .enter()
+    .append("g")
+    .attr("class", "slice");
+
+  // draw pie
+  slices.append("path")
+    .attr("d", arc)
+    .style("fill", function(d, i) { return color(i); });
+
+
+  var tooltip = d3.select("body")
+    .append("div")
+    .style("position", "absolute")
+    .style("background", "white")
+
+    .style("opacity", 0);
+
+  // hover events
+  slices.select("path")
+    .on("mouseover", function(d) {
+      var total = d3.sum(chartData, function(x) { return x.count; });
+      var pct = Math.round((d.data.count / total) * 100);
+
+      tooltip
+        .style("opacity", 0.9)
+        .html(d.data.label + " hrs<br>" +
+              "Students: " + d.data.count + "<br>" +
+              pct + "%");
+    })
+    .on("mousemove", function() {
+      tooltip
+        .style("left", (d3.event.pageX + 10) + "px")
+        .style("top", (d3.event.pageY - 20) + "px");
+    })
+    .on("mouseout", function() {
+      tooltip.style("opacity", 0);
+    })
+
+    // click = deeper breakdown
+    .on("click", function(d) {
+
+      var selectedRange = ranges.find(function(r) {
+        return r.label === d.data.label;
+      });
+
+      var subset = data.filter(function(row) {
+        return row.study_hours_per_week >= selectedRange.min &&
+               row.study_hours_per_week <= selectedRange.max;
+      });
+
+      var improved = subset.filter(function(r) {
+        return r.final_score > r.previous_score;
+      }).length;
+
+      var declined = subset.filter(function(r) {
+        return r.final_score < r.previous_score;
+      }).length;
+
+      var same = subset.filter(function(r) {
+        return r.final_score === r.previous_score;
+      }).length;
+
+      d3.select("#results").html(
+        "<strong>" + d.data.label + " hours/week</strong><br>" +
+        "Improved: " + improved + "<br>" +
+        "Declined: " + declined + "<br>" +
+        "No change: " + same
+      );
+    });
+
+  // labels inside slices
+  slices.append("text")
+    .attr("transform", function(d) {
+      return "translate(" + arc.centroid(d) + ")";
+    })
+    .attr("text-anchor", "middle")
+    .text(function(d) {
+      return d.data.count;
+    });
+
+});
+
+</script>
+</body>
+</html>
